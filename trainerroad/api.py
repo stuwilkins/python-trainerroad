@@ -1,4 +1,5 @@
 import requests
+import json
 import lxml.html
 from lxml import etree
 from io import StringIO, BytesIO
@@ -16,6 +17,9 @@ class TrainerRoad:
     _login_url = "https://www.trainerroad.com/login"
     _logout_url = 'https://www.trainerroad.com/logout'
     _rider_url = 'https://www.trainerroad.com/profile/rider-information'
+    _download_tcx_url = 'http://www.trainerroad.com/cycling/rides/download'
+    _workouts_url = 'https://api.trainerroad.com/api/careerworkouts'
+    _workout_details_url = 'https://api.trainerroad.com/api/careerworkouts?guid={}'
     _rvt = '__RequestVerificationToken'
 
     def __init__(self, username, password):
@@ -161,3 +165,37 @@ class TrainerRoad:
     @weight.setter
     def weight(self, value):
         self._write_profile({self._weight: value})
+
+    def download_tcx(self, id):
+        res = self._session.get('{}/{}'.format(self._download_tcx_url, str(id)))
+        if res.status_code != 200:
+            raise RuntimeError("Unable to download (code = {})"
+                               .format(res.status_code))
+
+        return res.text
+
+    def get_workouts(self):
+        res = self._session.get(self._workouts_url)
+        if res.status_code != 200:
+            raise RuntimeError("Unable to download (code = {})"
+                               .format(res.status_code))
+
+        data = json.loads(res.text)
+        logger.debug(json.dumps(data, indent=4, sort_keys=True))
+
+        logger.info('Recieved info on {} workouts'.format(len(data)))
+
+        return data
+
+
+    def get_workout(self, guid):
+        res = self._session.get(self._workout_details_url.format(str(guid)))
+
+        if res.status_code != 200:
+            raise RuntimeError('Unable to get workout "{}" (Code = {})'
+                               .format(guid, res.status_code))
+
+        data = json.loads(res.text)
+        logger.debug(json.dumps(data, indent=4, sort_keys=True))
+
+        return data
