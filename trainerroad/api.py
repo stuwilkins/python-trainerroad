@@ -11,15 +11,18 @@ logger = logging.getLogger(__name__)
 class TrainerRoad:
     _ftp = 'Ftp'
     _weight = 'Weight'
+    _units_metric = 'kmh'
+    _units_imperial = 'mph'
     _input_data_names = (_ftp, _weight, 'Marketing')
     _select_data_names = ('TimeZoneId', 'IsMale', 'IsPrivate',
                           'Units', 'IsVirtualPowerEnabled', 'TimeZoneId')
-    _login_url = "https://www.trainerroad.com/login"
+    _numerical_verify = (_ftp, _weight)
+    _string_verify = _select_data_names + ('Marketing',)
+    _login_url = 'https://www.trainerroad.com/login'
     _logout_url = 'https://www.trainerroad.com/logout'
     _rider_url = 'https://www.trainerroad.com/profile/rider-information'
     _download_tcx_url = 'http://www.trainerroad.com/cycling/rides/download'
     _workouts_url = 'https://api.trainerroad.com/api/careerworkouts'
-    _workout_details_url = 'https://api.trainerroad.com/api/careerworkouts?guid={}'
     _rvt = '__RequestVerificationToken'
 
     def __init__(self, username, password):
@@ -139,12 +142,19 @@ class TrainerRoad:
         # Now re-read to check
         _data, token = self._read_profile()
 
-        logger.info("Read profile values (verification) {}".format(data))
+        logger.info("Read profile values (verification) {}".format(_data))
 
-        if data == _data:
-            return
-        else:
-            raise RuntimeError('Failed to verify profile')
+        for key in self._numerical_verify:
+            logger.debug('Numerically verifying key "{}" "{}" with "{}"'
+                         .format(key, data[key], _data[key]))
+            if float(data[key]) != float(_data[key]):
+                raise RuntimeError('Failed to verify numerical key {}'
+                                   .format(key))
+        for key in self._string_verify:
+            logger.debug('String verifying key "{}" "{}" with "{}"'
+                         .format(key, data[key], _data[key]))
+            if data[key] != _data[key]:
+                raise RuntimeError('Failed to verify string key {}'.format(key))
 
         return
 
@@ -189,7 +199,8 @@ class TrainerRoad:
 
 
     def get_workout(self, guid):
-        res = self._session.get(self._workout_details_url.format(str(guid)))
+        res = self._session.get(self._workout_url
+                                + '?guid={}'.format(str(guid)))
 
         if res.status_code != 200:
             raise RuntimeError('Unable to get workout "{}" (Code = {})'
